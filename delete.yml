@@ -1,0 +1,21 @@
+---
+- hosts: localhost
+  gather_facts: false
+  pre_tasks:
+  - name: Validate if Terraform is installed
+    ansible.builtin.shell: 
+      cmd: "{{item}}"
+    with_items:
+    - terraform version
+    ignore_errors: true
+    no_log: true
+    register: result
+  - name: Exit if missing
+    ansible.builtin.fail:
+      msg: "Terraform must be installed"
+    when: (result.failed is defined) and result.failed
+  tasks:
+  - name: Destroy infrastructure
+    terraform:
+      project_path: './infra'
+      state: absent

@@ -1,0 +1,57 @@
+---
+- hosts: localhost
+  gather_facts: false
+  pre_tasks:
+  - name: Validate if Terraform and Helm are installed
+    ansible.builtin.shell: 
+      cmd: "{{item}}"
+    with_items:
+    - terraform version
+    - helm version
+    ignore_errors: true
+    no_log: true
+    register: result
+  - name: Exit if missing
+    ansible.builtin.fail:
+      msg: "Terraform and Helm CLI must be installed"
+    when: (result.failed is defined) and result.failed
+  tasks:
+  - name: Build infrastructure
+    terraform:
+      project_path: './infra'
+      state: present
+      force_init: true
+    register: result
+  - name: Store PN subnet as fact
+    set_fact:
+      pn_subnet: "{{ result.outputs.subnet.value }}"
+  - name: Add MetalLB chart repo
+    kubernetes.core.helm_repository:
+      name: metallb
+      repo_url: "https://metallb.github.io/metallb"
+      state: present
+      force_update: true
+  - name: Install MetalLB
+    kubernetes.core.helm:
+      state: present
+      kubeconfig_path: "infra/kubeconfig.yaml"
+      name: metallb
+      chart_ref: metallb/metallb
+      release_namespace: metallb-system
+      create_namespace: true
+      wait: true
+      set_values:
+      - value: loadBalancerClass=metallb
+        value_type: string
+  - name: Configure MetalLB
+    kubernetes.core.k8s:
+      kubeconfig: "infra/kubeconfig.yaml"
+      state: present
+      wait: true
+      template: "config/l2.yaml.j2"
+  - name: Demo usage
+    kubernetes.core.k8s:
+      kubeconfig: "infra/kubeconfig.yaml"
+      state: present
+      wait: true
+      template: "demo/test.yaml.j2"

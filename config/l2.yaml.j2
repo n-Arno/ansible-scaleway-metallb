@@ -1,0 +1,20 @@
+---
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: pn-pool
+  namespace: metallb-system
+spec:
+  avoidBuggyIPs: true
+  autoAssign: false
+  addresses:
+  - {{ pn_subnet }}
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: pn-advertisement
+  namespace: metallb-system
+spec:
+  interfaces:
+  - kapsule0
